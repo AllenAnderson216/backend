@@ -763,3 +763,124 @@ def generate_video(request: VideoRequest):
             "success": False,
             "error": str(e),
         }
+
+# =========================================================
+# AI 旁白 / 角色配音 - Qwen3-TTS
+# =========================================================
+
+class VoiceRequest(BaseModel):
+    text: str
+    voice: str = "Cherry"
+    language_type: str = "Chinese"
+    instructions: Optional[str] = None
+    optimize_instructions: bool = False
+
+
+@app.post("/api/voice/generate")
+def generate_voice(request: VoiceRequest):
+
+    if not api_key:
+        return {
+            "success": False,
+            "error": "没有找到 DASHSCOPE_API_KEY，请检查 backend/.env",
+        }
+
+    text = request.text.strip()
+
+    if not text:
+        return {
+            "success": False,
+            "error": "配音文本不能为空",
+        }
+
+    # Qwen3-TTS-Flash 单次文本长度有限，避免发送明显超限内容
+    if len(text) > 600:
+        return {
+            "success": False,
+            "error": "单次配音文本不能超过600个字符，请拆分后生成",
+        }
+
+    allowed_languages = {
+        "Chinese",
+        "English",
+        "German",
+        "Italian",
+        "Portuguese",
+        "Spanish",
+        "Japanese",
+        "Korean",
+        "French",
+        "Russian",
+        "Auto",
+    }
+
+    language_type = request.language_type
+    if language_type not in allowed_languages:
+        language_type = "Chinese"
+
+    try:
+        # 使用当前项目已经配置好的百炼工作空间地址
+        dashscope.base_http_api_url = (
+            f"https://{WORKSPACE_ID}.cn-beijing.maas.aliyuncs.com/api/v1"
+        )
+
+        kwargs = {
+            "model": "qwen3-tts-flash",
+            "api_key": api_key,
+            "text": text,
+            "voice": request.voice or "Cherry",
+            "language_type": language_type,
+        }
+
+        # 指令控制仅在需要时传递
+        if request.instructions and request.instructions.strip():
+            kwargs["instructions"] = request.instructions.strip()
+            kwargs["optimize_instructions"] = request.optimize_instructions
+
+        response = dashscope.MultiModalConversation.call(**kwargs)
+
+        if not response:
+            return {
+                "success": False,
+                "error": "语音服务没有返回结果",
+            }
+
+        # 统一读取 DashScope 响应
+        output = getattr(response, "output", None)
+        audio = getattr(output, "audio", None) if output else None
+        audio_url = getattr(audio, "url", None) if audio else None
+        audio_id = getattr(audio, "id", None) if audio else None
+        expires_at = getattr(audio, "expires_at", None) if audio else None
+
+        # 某些 SDK 版本可能返回字典对象
+        if not audio_url and isinstance(response, dict):
+            output = response.get("output") or {}
+            audio = output.get("audio") or {}
+            audio_url = audio.get("url")
+            audio_id = audio.get("id")
+            expires_at = audio.get("expires_at")
+
+        if not audio_url:
+            return {
+                "success": False,
+                "error": "语音生成成功，但没有找到 audio_url",
+                "raw": str(response)[:3000],
+            }
+
+        return {
+            "success": True,
+            "model": "qwen3-tts-flash",
+            "voice": request.voice or "Cherry",
+            "language_type": language_type,
+            "text": text,
+            "audio_url": audio_url,
+            "audio_id": audio_id,
+            "expires_at": expires_at,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
