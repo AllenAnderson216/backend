@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>缘来是你 · 高端婚恋交友</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              200: '#fecdd3',
+              300: '#fda4af',
+              400: '#fb7185',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
+            },
+            gold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            }
+          },
+          fontFamily: {
+            sans: ['"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .card-shadow {
+      box-shadow: 0 10px 40px -10px rgba(244, 63, 94, 0.15);
+    }
+    .swipe-card {
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      touch-action: none;
+    }
+    .swipe-left {
+      transform: translateX(-150%) rotate(-20deg);
+      opacity: 0;
+    }
+    .swipe-right {
+      transform: translateX(150%) rotate(20deg);
+      opacity: 0;
+    }
+    .profile-avatar {
+      background: linear-gradient(135deg, #fda4af 0%, #f43f5e 100%);
+    }
+    .hero-gradient {
+      background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 40%, #fecdd3 100%);
+    }
+    .nav-active {
+      color: #e11d48;
+      border-bottom: 2px solid #e11d48;
+    }
+    .filter-chip.active {
+      background-color: #e11d48;
+      color: white;
+      border-color: #e11d48;
+    }
+    .match-success {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .like-heart {
+      animation: heartBeat 0.6s ease;
+    }
+    @keyframes heartBeat {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.3); }
+      50% { transform: scale(1); }
+      75% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+  <!-- 顶部导航 -->
+  <nav class="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="showPage('home')">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-lg">
+            缘
+          </div>
+          <span class="text-xl font-bold text-primary-700">缘来是你</span>
+        </div>
+        <div class="hidden md:flex items-center gap-8 text-sm font-medium">
+          <button onclick="showPage('home')" id="nav-home" class="nav-link py-1 nav-active">首页</button>
+          <button onclick="showPage('members')" id="nav-members" class="nav-link py-1">优质会员</button>
+          <button onclick="showPage('match')" id="nav-match" class="nav-link py-1">智能匹配</button>
+          <button onclick="showPage('profile')" id="nav-profile" class="nav-link py-1">我的主页</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <button class="hidden sm:block px-4 py-1.5 text-sm text-primary-600 border border-primary-300 rounded-full hover:bg-primary-50 transition">
+            登录
+          </button>
+          <button class="px-4 py-1.5 text-sm bg-primary-600 text-white rounded-full hover:bg-primary-700 transition shadow-md">
+            免费注册
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 移动端底部导航 -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex justify-around py-2">
+    <button onclick="showPage('home')" class="flex flex-col items-center text-xs text-primary-600">
+      <i class="fas fa-home text-lg mb-0.5"></i>
+      <span>首页</span>
+    </button>
+    <button onclick="showPage('members')" class="flex flex-col items-center text-xs text-gray-500">
+      <i class="fas fa-users text-lg mb-0.5"></i>
+      <span>会员</span>
+    </button>
+    <button onclick="showPage('match')" class="flex flex-col items-center text-xs text-gray-500">
+      <i class="fas fa-heart text-lg mb-0.5"></i>
+      <span>匹配</span>
+    </button>
+    <button onclick="showPage('profile')" class="flex flex-col items-center text-xs text-gray-500">
+      <i class="fas fa-user text-lg mb-0.5"></i>
+      <span>我的</span>
+    </button>
+  </div>
+
+  <!-- ==================== 首页 ==================== -->
+  <section id="page-home" class="page pt-16 pb-20 md:pb-8">
+    <!-- Hero -->
+    <div class="hero-gradient relative overflow-hidden">
+      <div class="max-w-6xl mx-auto px-4 py-16 md:py-24 flex flex-col md:flex-row items-center gap-12">
+        <div class="flex-1 text-center md:text-left">
+          <div class="inline-flex items-center gap-2 px-3 py-1 bg-white/70 rounded-full text-sm text-primary-700 mb-6">
+            <i class="fas fa-certificate text-gold-500"></i>
+            <span>已有 128,000+ 真实会员找到真爱</span>
+          </div>
+          <h1 class="text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-4">
+            遇见对的人<br>
+            <span class="text-primary-600">开启幸福人生</span>
+          </h1>
+          <p class="text-lg text-gray-600 mb-8 max-w-md mx-auto md:mx-0">
+            严格实名认证 · 智能精准匹配 · 高端优质单身<br>
+            让每一次遇见，都更有意义
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+            <button onclick="showPage('match')" class="px-8 py-3.5 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition shadow-lg shadow-primary-200 flex items-center justify-center gap-2">
+              <i class="fas fa-heart"></i>
+              开始匹配
+            </button>
+            <button onclick="showPage('members')" class="px-8 py-3.5 bg-white text-primary-700 border border-primary-200 rounded-full font-medium hover:bg-primary-50 transition flex items-center justify-center gap-2">
+              <i class="fas fa-search"></i>
+              浏览会员
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 relative">
+          <div class="relative w-72 h-80 mx-auto">
+            <div class="absolute inset-0 bg-white rounded-3xl shadow-2xl card-shadow overflow-hidden transform rotate-3">
+              <div class="h-2/3 profile-avatar flex items-center justify-center">
+                <span class="text-white text-6xl font-bold opacity-80">她</span>
+              </div>
+              <div class="p-4">
+                <div class="font-bold text-lg">林晓薇 · 28岁</div>
+                <div class="text-sm text-gray-500">上海 · 硕士 · 金融</div>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-white rounded-3xl shadow-xl overflow-hidden transform -rotate-6 -translate-x-8 translate-y-4 opacity-90">
+              <div class="h-2/3 bg-gradient-to-br from-blue-300 to-blue-500 flex items-center justify-center">
+                <span class="text-white text-6xl font-bold opacity-80">他</span>
+              </div>
+              <div class="p-4">
+                <div class="font-bold text-lg">陈默 · 31岁</div>
+                <div class="text-sm text-gray-500">北京 · 本科 · 互联网</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据亮点 -->
+    <div class="max-w-6xl mx-auto px-4 -mt-8 relative z-10">
+      <div class="bg-white rounded-2xl shadow-lg p-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div>
+          <div class="text-3xl font-bold text-primary-600">12.8万+</div>
+          <div class="text-sm text-gray-500 mt-1">真实会员</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-primary-600">98%</div>
+          <div class="text-sm text-gray-500 mt-1">实名认证率</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-primary-600">3.2万+</div>
+          <div class="text-sm text-gray-500 mt-1">成功牵手</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-primary-600">4.9分</div>
+          <div class="text-sm text-gray-500 mt-1">用户好评</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 为什么选择我们 -->
+    <div class="max-w-6xl mx-auto px-4 py-16">
+      <h2 class="text-2xl md:text-3xl font-bold text-center mb-3">为什么选择「缘来是你」</h2>
+      <p class="text-center text-gray-500 mb-12">我们专注于高质量的婚恋匹配，帮你遇见更合适的人</p>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white rounded-2xl p-6 card-shadow hover:shadow-xl transition">
+          <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl mb-4">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-2">严格实名认证</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">身份证、学历、职业多重认证，拒绝虚假信息，让每一次互动都更安心。</p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 card-shadow hover:shadow-xl transition">
+          <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl mb-4">
+            <i class="fas fa-magic"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-2">智能精准匹配</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">基于价值观、生活方式、兴趣偏好等多维度算法，提高匹配成功率。</p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 card-shadow hover:shadow-xl transition">
+          <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl mb-4">
+            <i class="fas fa-user-check"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-2">优质单身群体</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">以高学历、稳定职业人群为主，真正有结婚意愿的认真用户。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 精选会员预览 -->
+    <div class="bg-white py-16">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h2 class="text-2xl font-bold">精选优质会员</h2>
+            <p class="text-gray-500 text-sm mt-1">今日新推荐 · 真实可聊</p>
+          </div>
+          <button onclick="showPage('members')" class="text-primary-600 text-sm font-medium hover:underline">
+            查看全部 →
+          </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="home-members">
+          <!-- 由 JS 填充 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="max-w-6xl mx-auto px-4 py-16">
+      <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-3xl p-10 md:p-14 text-center text-white relative overflow-hidden">
+        <div class="relative z-10">
+          <h2 class="text-2xl md:text-3xl font-bold mb-3">准备好遇见对的人了吗？</h2>
+          <p class="text-primary-100 mb-8 max-w-lg mx-auto">注册仅需1分钟，完善资料后即可开启智能匹配</p>
+          <button class="px-10 py-3.5 bg-white text-primary-700 rounded-full font-medium hover:bg-primary-50 transition shadow-lg">
+            立即免费注册
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 会员列表 + 筛选 ==================== -->
+  <section id="page-members" class="page pt-20 pb-24 md:pb-12 hidden">
+    <div class="max-w-6xl mx-auto px-4">
+      <h1 class="text-2xl font-bold mb-6">优质会员</h1>
+
+      <!-- 筛选区 -->
+      <div class="bg-white rounded-2xl p-5 mb-6 shadow-sm">
+        <div class="flex flex-wrap gap-3 mb-4">
+          <span class="text-sm text-gray-500 self-center">性别：</span>
+          <button class="filter-chip active px-4 py-1.5 text-sm border border-gray-200 rounded-full hover:border-primary-300 transition" data-filter="gender" data-value="all">全部</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full hover:border-primary-300 transition" data-filter="gender" data-value="女">女生</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full hover:border-primary-300 transition" data-filter="gender" data-value="男">男生</button>
+        </div>
+        <div class="flex flex-wrap gap-3 mb-4">
+          <span class="text-sm text-gray-500 self-center">城市：</span>
+          <button class="filter-chip active px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="all">全部</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="上海">上海</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="北京">北京</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="广州">广州</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="深圳">深圳</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="city" data-value="杭州">杭州</button>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <span class="text-sm text-gray-500 self-center">年龄：</span>
+          <button class="filter-chip active px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="age" data-value="all">不限</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="age" data-value="25-30">25-30</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="age" data-value="30-35">30-35</button>
+          <button class="filter-chip px-4 py-1.5 text-sm border border-gray-200 rounded-full" data-filter="age" data-value="35-40">35-40</button>
+        </div>
+      </div>
+
+      <!-- 会员卡片列表 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="members-list">
+        <!-- 由 JS 填充 -->
+      </div>
+      <div class="text-center mt-8 text-gray-400 text-sm" id="members-count"></div>
+    </div>
+  </section>
+
+  <!-- ==================== 智能匹配（滑动） ==================== -->
+  <section id="page-match" class="page pt-20 pb-24 md:pb-12 hidden">
+    <div class="max-w-md mx-auto px-4">
+      <h1 class="text-2xl font-bold text-center mb-2">今日推荐</h1>
+      <p class="text-center text-gray-500 text-sm mb-8">左右滑动 · 遇见心动的人</p>
+
+      <div class="relative h-[480px] mb-8" id="swipe-container">
+        <!-- 卡片由 JS 动态生成 -->
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex justify-center items-center gap-6">
+        <button onclick="swipeCard('left')" class="w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:scale-110 transition text-2xl">
+          <i class="fas fa-times"></i>
+        </button>
+        <button onclick="swipeCard('right')" class="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 shadow-xl flex items-center justify-center text-white hover:scale-110 transition text-3xl">
+          <i class="fas fa-heart"></i>
+        </button>
+        <button onclick="showProfileFromMatch()" class="w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:scale-110 transition text-2xl">
+          <i class="fas fa-info"></i>
+        </button>
+      </div>
+
+      <!-- 匹配成功弹窗 -->
+      <div id="match-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center match-success">
+          <div class="text-6xl mb-4">💕</div>
+          <h2 class="text-2xl font-bold text-primary-600 mb-2">匹配成功！</h2>
+          <p class="text-gray-600 mb-6" id="match-name">你们互相喜欢对方了</p>
+          <div class="flex gap-3">
+            <button onclick="closeMatchModal()" class="flex-1 py-3 border border-gray-200 rounded-full text-gray-600">继续浏览</button>
+            <button class="flex-1 py-3 bg-primary-600 text-white rounded-full">立即聊天</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 个人主页 ==================== -->
+  <section id="page-profile" class="page pt-20 pb-24 md:pb-12 hidden">
+    <div class="max-w-2xl mx-auto px-4">
+      <!-- 顶部资料卡 -->
+      <div class="bg-white rounded-3xl overflow-hidden shadow-lg mb-6">
+        <div class="h-40 bg-gradient-to-r from-primary-400 to-primary-600 relative">
+          <div class="absolute -bottom-12 left-6">
+            <div class="w-24 h-24 rounded-full border-4 border-white profile-avatar flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+              我
+            </div>
+          </div>
+        </div>
+        <div class="pt-16 pb-6 px-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <h1 class="text-2xl font-bold">张雨桐 <span class="text-sm font-normal text-gray-400">· 29岁</span></h1>
+              <p class="text-gray-500 text-sm mt-1">
+                <i class="fas fa-map-marker-alt text-primary-400 mr-1"></i>上海 · 浦东新区
+              </p>
+            </div>
+            <button class="px-4 py-1.5 text-sm border border-primary-300 text-primary-600 rounded-full hover:bg-primary-50">
+              编辑资料
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-4">
+            <span class="px-3 py-1 bg-primary-50 text-primary-700 text-xs rounded-full">硕士 · 华东师范</span>
+            <span class="px-3 py-1 bg-primary-50 text-primary-700 text-xs rounded-full">产品经理</span>
+            <span class="px-3 py-1 bg-primary-50 text-primary-700 text-xs rounded-full">已实名</span>
+            <span class="px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full">学历认证</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 基本信息 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm mb-5">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <i class="fas fa-user text-primary-500"></i> 基本信息
+        </h2>
+        <div class="grid grid-cols-2 gap-y-3 text-sm">
+          <div class="text-gray-500">身高</div>
+          <div>168 cm</div>
+          <div class="text-gray-500">学历</div>
+          <div>硕士研究生</div>
+          <div class="text-gray-500">职业</div>
+          <div>互联网产品经理</div>
+          <div class="text-gray-500">年收入</div>
+          <div>30-50万</div>
+          <div class="text-gray-500">住房</div>
+          <div>已购房（有贷）</div>
+          <div class="text-gray-500">婚姻状况</div>
+          <div>未婚</div>
+        </div>
+      </div>
+
+      <!-- 关于我 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm mb-5">
+        <h2 class="font-bold text-lg mb-3 flex items-center gap-2">
+          <i class="fas fa-quote-left text-primary-500"></i> 关于我
+        </h2>
+        <p class="text-gray-600 text-sm leading-relaxed">
+          性格温和，喜欢安静也享受热闹。工作认真负责，业余时间喜欢看电影、旅行和尝试新餐厅。希望找到一个三观契合、能一起成长的人，认真经营一段关系。
+        </p>
+      </div>
+
+      <!-- 择偶要求 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm mb-5">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <i class="fas fa-heart text-primary-500"></i> 择偶期望
+        </h2>
+        <div class="grid grid-cols-2 gap-y-3 text-sm">
+          <div class="text-gray-500">年龄</div>
+          <div>28-35岁</div>
+          <div class="text-gray-500">身高</div>
+          <div>175cm 以上</div>
+          <div class="text-gray-500">学历</div>
+          <div>本科及以上</div>
+          <div class="text-gray-500">城市</div>
+          <div>上海或可来沪</div>
+          <div class="text-gray-500">其他</div>
+          <div>有责任心、性格温和</div>
+        </div>
+      </div>
+
+      <!-- 兴趣标签 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <i class="fas fa-tags text-primary-500"></i> 兴趣爱好
+        </h2>
+        <div class="flex flex-wrap gap-2">
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">电影</span>
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">旅行</span>
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">美食</span>
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">阅读</span>
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">瑜伽</span>
+          <span class="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-full">咖啡</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 会员详情弹窗 -->
+  <div id="detail-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+    <div class="bg-white rounded-t-3xl md:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white p-4 flex justify-between items-center border-b">
+        <h3 class="font-bold text-lg">会员详情</h3>
+        <button onclick="closeDetail()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="detail-content" class="p-6">
+        <!-- 动态填充 -->
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
