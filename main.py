@@ -1,7 +1,14 @@
 import os
 import json
+import time
+import uuid
+from pathlib import Path
+from typing import Optional
+
+import requests
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -17,6 +24,82 @@ import dashscope
 load_dotenv()
 
 api_key = os.getenv("DASHSCOPE_API_KEY")
+
+# =========================================================
+# 本地生成文件目录
+# =========================================================
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "outputs"
+IMAGE_DIR = OUTPUT_DIR / "images"
+VIDEO_DIR = OUTPUT_DIR / "videos"
+AUDIO_DIR = OUTPUT_DIR / "audio"
+
+for _directory in [
+    OUTPUT_DIR,
+    IMAGE_DIR / "characters",
+    IMAGE_DIR / "scenes",
+    IMAGE_DIR / "props",
+    IMAGE_DIR / "shots",
+    VIDEO_DIR / "shots",
+    VIDEO_DIR / "final",
+    AUDIO_DIR / "narrator",
+    AUDIO_DIR / "characters",
+    AUDIO_DIR / "music",
+]:
+    _directory.mkdir(parents=True, exist_ok=True)
+
+
+def _download_file(url: str, target: Path, timeout: int = 180) -> None:
+    """下载 AI 服务返回的临时文件到本地。"""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(url, stream=True, timeout=timeout) as response:
+        response.raise_for_status()
+        with open(target, "wb") as file:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    file.write(chunk)
+
+
+def _local_url(path: Path) -> str:
+    relative = path.relative_to(BASE_DIR).as_posix()
+    return f"/{relative}"
+
+
+def _save_source_metadata(local_file: Path, source_url: str) -> None:
+    try:
+        meta = local_file.with_suffix(local_file.suffix + ".source.json")
+        meta.write_text(
+            json.dumps({"source_url": source_url}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _resolve_remote_source(url: str) -> str:
+    """如果前端传入本地 /outputs 地址，恢复对应的百炼临时源地址。"""
+    if not url:
+        return url
+
+    if url.startswith("http://") or url.startswith("https://"):
+        if "/outputs/" not in url:
+            return url
+        path_part = url.split("/outputs/", 1)[1].split("?", 1)[0]
+        local_file = OUTPUT_DIR / Path(path_part)
+    elif url.startswith("/outputs/"):
+        local_file = OUTPUT_DIR / Path(url[len("/outputs/"):].split("?", 1)[0])
+    else:
+        return url
+
+    meta = local_file.with_suffix(local_file.suffix + ".source.json")
+    if meta.exists():
+        try:
+            data = json.loads(meta.read_text(encoding="utf-8"))
+            return data.get("source_url") or url
+        except Exception:
+            pass
+
+    return url
 
 
 # =========================================================
@@ -47,8 +130,11 @@ dashscope.base_http_api_url = (
 app = FastAPI(
     title="AI Video Factory API",
     description="AI 一键短视频制作平台后端",
-    version="5.0.0",
+    version="6.0.0-local",
 )
+
+# 浏览器可直接访问本地生成的图片、视频、音频
+app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
 
 # =========================================================
@@ -81,6 +167,8 @@ class ScriptRequest(BaseModel):
 class ImageRequest(BaseModel):
     prompt: str
     size: str = "1536*2688"
+    # 前端可传 character / scene / prop / shot，用于本地分类保存
+    type: str = "shot"
 
 
 # =========================================================
@@ -416,6 +504,13 @@ def generate_image(request: ImageRequest):
             stream=False,
 
             result_format="message",
+
+            # Wan 2.7 图片模型的输出尺寸必须通过 parameters.size 传入。
+            parameters={
+                "size": request.size,
+                "n": 1,
+                "watermark": False,
+            },
         )
 
         # =====================================================
@@ -498,19 +593,35 @@ def generate_image(request: ImageRequest):
             }
 
         # =====================================================
-        # 成功
+        # 保存到本地
         # =====================================================
 
+        type_dirs = {
+            "character": IMAGE_DIR / "characters",
+            "scene": IMAGE_DIR / "scenes",
+            "prop": IMAGE_DIR / "props",
+            "shot": IMAGE_DIR / "shots",
+        }
+        target_dir = type_dirs.get(request.type, IMAGE_DIR / "shots")
+        target_file = target_dir / f"{request.type}_{uuid.uuid4().hex}.png"
+
+        try:
+            _download_file(image_url, target_file, timeout=120)
+            _save_source_metadata(target_file, image_url)
+            local_image_url = _local_url(target_file)
+        except Exception as download_error:
+            return {
+                "success": False,
+                "error": f"图片生成成功，但保存到本地失败：{download_error}",
+                "image_url": image_url,
+            }
+
         return {
-
             "success": True,
-
             "model": "wan2.7-image-pro",
-
             "image_url": image_url,
-
+            "local_image_url": local_image_url,
             "prompt": request.prompt,
-
             "size": request.size,
         }
 
@@ -574,6 +685,8 @@ def generate_video(request: VideoRequest):
         # Wan 2.7 图生视频接口
         # =====================================================
 
+        source_image_url = _resolve_remote_source(request.image_url)
+
         video_api_url = (
             f"https://{WORKSPACE_ID}.cn-beijing.maas.aliyuncs.com"
             "/api/v1/services/aigc/video-generation/video-synthesis"
@@ -592,7 +705,7 @@ def generate_video(request: VideoRequest):
                 "media": [
                     {
                         "type": "first_frame",
-                        "url": request.image_url,
+                        "url": source_image_url,
                     }
                 ],
             },
@@ -697,11 +810,25 @@ def generate_video(request: VideoRequest):
                         "raw": status_result,
                     }
 
+                target_file = VIDEO_DIR / "shots" / f"shot_{uuid.uuid4().hex}.mp4"
+                try:
+                    _download_file(video_url, target_file, timeout=300)
+                except Exception as download_error:
+                    return {
+                        "success": False,
+                        "task_id": task_id,
+                        "task_status": "SUCCEEDED",
+                        "error": f"视频生成成功，但保存到本地失败：{download_error}",
+                        "video_url": video_url,
+                    }
+
+                local_video_url = _local_url(target_file)
                 return {
                     "success": True,
                     "task_id": task_id,
                     "task_status": "SUCCEEDED",
-                    "video_url": video_url,
+                    "video_url": local_video_url,
+                    "remote_video_url": video_url,
                     "model": "wan2.7-i2v-2026-04-25",
                     "duration": request.duration,
                     "ratio": request.ratio,
@@ -867,13 +994,26 @@ def generate_voice(request: VoiceRequest):
                 "raw": str(response)[:3000],
             }
 
+        voice_dir = AUDIO_DIR / "characters"
+        target_file = voice_dir / f"voice_{uuid.uuid4().hex}.mp3"
+        try:
+            _download_file(audio_url, target_file, timeout=180)
+            local_audio_url = _local_url(target_file)
+        except Exception as download_error:
+            return {
+                "success": False,
+                "error": f"语音生成成功，但保存到本地失败：{download_error}",
+                "audio_url": audio_url,
+            }
+
         return {
             "success": True,
             "model": "qwen3-tts-flash",
             "voice": request.voice or "Cherry",
             "language_type": language_type,
             "text": text,
-            "audio_url": audio_url,
+            "audio_url": local_audio_url,
+            "remote_audio_url": audio_url,
             "audio_id": audio_id,
             "expires_at": expires_at,
         }
